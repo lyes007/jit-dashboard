@@ -16,8 +16,23 @@ export default function MachineFilter({ machines }: MachineFilterProps) {
 
   const handleMachineChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newMachine = event.target.value;
-    const month = searchParams.get('month') || '2025-08';
-    router.push(`/?month=${month}&machine=${newMachine}`);
+    const params = new URLSearchParams(searchParams.toString());
+    
+    if (newMachine === 'all') {
+      params.delete('machine');
+    } else {
+      params.set('machine', newMachine);
+    }
+    
+    // Preserve periodType and period if they exist
+    if (!params.has('periodType')) {
+      params.set('periodType', 'month');
+    }
+    if (!params.has('period')) {
+      params.set('period', '2025-08');
+    }
+    
+    router.push(`/?${params.toString()}`);
   };
 
   return (

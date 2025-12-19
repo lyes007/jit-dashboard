@@ -59,6 +59,47 @@ export async function getAllMachines(): Promise<{ machine_code: string; machine_
   return result.rows as { machine_code: string; machine_name: string }[];
 }
 
+export async function getAvailableWeeks(): Promise<{ year: number; week: number; start_date: Date; end_date: Date }[]> {
+  const result = await pool.query(`
+    SELECT DISTINCT 
+      year,
+      week,
+      MIN(full_date) as start_date,
+      MAX(full_date) as end_date
+    FROM dim_time
+    WHERE full_date IS NOT NULL
+    GROUP BY year, week
+    ORDER BY year DESC, week DESC
+  `);
+  
+  return result.rows.map(row => ({
+    year: row.year,
+    week: row.week,
+    start_date: new Date(row.start_date),
+    end_date: new Date(row.end_date),
+  }));
+}
+
+export async function getAvailableDays(): Promise<{ full_date: Date; year: number; month: number; day: number }[]> {
+  const result = await pool.query(`
+    SELECT DISTINCT 
+      full_date,
+      year,
+      month,
+      day_of_month as day
+    FROM dim_time
+    WHERE full_date IS NOT NULL
+    ORDER BY full_date DESC
+  `);
+  
+  return result.rows.map(row => ({
+    full_date: new Date(row.full_date),
+    year: row.year,
+    month: row.month,
+    day: row.day,
+  }));
+}
+
 export async function getProductionTrend(startDate?: string, endDate?: string): Promise<ProductionTrend[]> {
   let dateFilter = '';
   const params: string[] = [];

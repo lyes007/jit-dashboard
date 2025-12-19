@@ -20,20 +20,93 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, parseISO, getISOWeek, getISOYear, startOfISOWeek, endOfISOWeek } from 'date-fns';
 import { capitalizeName } from '@/lib/utils';
 
 interface PageProps {
-  searchParams?: { month?: string; machine?: string };
+  searchParams?: { periodType?: string; period?: string; machine?: string };
+}
+
+async function getDateRange(periodType: string, periodValue: string): Promise<{ startDate: Date; endDate: Date }> {
+  if (periodType === 'week') {
+    // Parse format: "2025-W31"
+    const match = periodValue.match(/^(\d{4})-W(\d{2})$/);
+    if (match) {
+      const year = parseInt(match[1]);
+      const week = parseInt(match[2]);
+      
+      // Query database for the week's actual date range
+      const { getAvailableWeeks } = await import('@/lib/queries');
+      const weeks = await getAvailableWeeks();
+      const weekData = weeks.find(w => w.year === year && w.week === week);
+      
+      if (weekData) {
+        return {
+          startDate: startOfDay(weekData.start_date),
+          endDate: endOfDay(weekData.end_date),
+        };
+      }
+      
+      // Fallback: calculate ISO week manually
+      // Use January 4th as reference (always in week 1 of ISO year)
+      const jan4 = new Date(year, 0, 4);
+      const jan4Week = getISOWeek(jan4);
+      const jan4Year = getISOYear(jan4);
+      
+      // Calculate days to add
+      const weekDiff = week - jan4Week;
+      const yearDiff = year - jan4Year;
+      const daysToAdd = (weekDiff + yearDiff * 52) * 7;
+      
+      const targetDate = new Date(jan4);
+      targetDate.setDate(jan4.getDate() + daysToAdd);
+      
+      return {
+        startDate: startOfISOWeek(targetDate),
+        endDate: endOfISOWeek(targetDate),
+      };
+    }
+    // Fallback to current week if parsing fails
+    const now = new Date();
+    return {
+      startDate: startOfISOWeek(now),
+      endDate: endOfISOWeek(now),
+    };
+  } else if (periodType === 'day') {
+    // Parse format: "2025-08-01"
+    try {
+      const date = parseISO(periodValue);
+      return {
+        startDate: startOfDay(date),
+        endDate: endOfDay(date),
+      };
+    } catch {
+      // Fallback to today
+      const today = new Date();
+      return {
+        startDate: startOfDay(today),
+        endDate: endOfDay(today),
+      };
+    }
+  } else {
+    // Default to month
+    const monthParam = periodValue || '2025-08';
+    const [year, month] = monthParam.split('-').map(Number);
+    const monthStart = new Date(year, month - 1, 1);
+    return {
+      startDate: startOfMonth(monthStart),
+      endDate: endOfMonth(monthStart),
+    };
+  }
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
-  // Get month from search params or default to August 2025
-  const monthParam = searchParams?.month || '2025-08';
+  // Get period type and value from search params
+  const periodType = searchParams?.periodType || 'month';
+  const periodValue = searchParams?.period || '2025-08';
   const machineParam = searchParams?.machine || 'all';
-  const [year, month] = monthParam.split('-').map(Number);
-  const startDate = startOfMonth(new Date(year, month - 1, 1));
-  const endDate = endOfMonth(new Date(year, month - 1, 1));
+  
+  const { startDate, endDate } = await getDateRange(periodType, periodValue);
   
   const startDateStr = format(startDate, 'yyyy-MM-dd');
   const endDateStr = format(endDate, 'yyyy-MM-dd');
@@ -277,7 +350,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-6">
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Quality Overview</h3>
-          <p className="text-sm text-gray-500 mt-0.5">{format(startDate, 'MMMM yyyy')}</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {periodType === 'day' 
+              ? format(startDate, 'MMMM d, yyyy')
+              : periodType === 'week'
+              ? `Week of ${format(startDate, 'MMM d')} - ${format(endDate, 'MMM d, yyyy')}`
+              : format(startDate, 'MMMM yyyy')}
+          </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="border-l-4 border-emerald-500 pl-5">
