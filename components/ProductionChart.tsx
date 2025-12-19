@@ -19,7 +19,7 @@ interface ProductionChartProps {
 
 export default function ProductionChart({ data }: ProductionChartProps) {
   // Group data by date and machine
-  const groupedData: Record<string, Record<string, number>> = {};
+  const groupedData: Record<string, Record<string, number | string>> = {};
   
   data.forEach((item) => {
     const dateKey = format(item.full_date, 'yyyy-MM-dd');
