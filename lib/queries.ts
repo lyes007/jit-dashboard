@@ -8,13 +8,21 @@ import type {
   MaterialEfficiency,
 } from '@/types/database';
 
-export async function getKPISummary(startDate?: string, endDate?: string): Promise<KPISummary> {
+export async function getKPISummary(startDate?: string, endDate?: string, machineCode?: string): Promise<KPISummary> {
   let dateFilter = '';
+  let machineFilter = '';
   const params: string[] = [];
+  let paramIndex = 1;
   
   if (startDate && endDate) {
-    dateFilter = 'AND t.full_date >= $1::date AND t.full_date <= $2::date';
+    dateFilter = `AND t.full_date >= $${paramIndex}::date AND t.full_date <= $${paramIndex + 1}::date`;
     params.push(startDate, endDate);
+    paramIndex += 2;
+  }
+  
+  if (machineCode && machineCode !== 'all') {
+    machineFilter = `AND m.machine_code = $${paramIndex}`;
+    params.push(machineCode);
   }
   
   const result = await pool.query(`
@@ -35,9 +43,20 @@ export async function getKPISummary(startDate?: string, endDate?: string): Promi
     WHERE fp.event_category = 'Production'
       AND fp.good_pieces > 0
       ${dateFilter}
+      ${machineFilter}
   `, params.length > 0 ? params : undefined);
   
   return result.rows[0] as KPISummary;
+}
+
+export async function getAllMachines(): Promise<{ machine_code: string; machine_name: string }[]> {
+  const result = await pool.query(`
+    SELECT DISTINCT machine_code, machine_name
+    FROM dim_machine
+    ORDER BY machine_code
+  `);
+  
+  return result.rows as { machine_code: string; machine_name: string }[];
 }
 
 export async function getProductionTrend(startDate?: string, endDate?: string): Promise<ProductionTrend[]> {
@@ -114,14 +133,24 @@ export async function getMachinePerformance(startDate?: string, endDate?: string
   return result.rows as MachinePerformance[];
 }
 
-export async function getTopOperators(limit: number = 10): Promise<OperatorPerformance[]> {
-  const result = await pool.query(`
-    SELECT * FROM vw_operator_performance
-    ORDER BY total_good_pieces DESC
-    LIMIT $1
-  `, [limit]);
-  
-  return result.rows as OperatorPerformance[];
+export async function getTopOperators(limit?: number): Promise<OperatorPerformance[]> {
+  if (limit) {
+    const result = await pool.query(`
+      SELECT * FROM vw_operator_performance
+      ORDER BY total_good_pieces DESC
+      LIMIT $1
+    `, [limit]);
+    
+    return result.rows as OperatorPerformance[];
+  } else {
+    // Return all operators if no limit specified
+    const result = await pool.query(`
+      SELECT * FROM vw_operator_performance
+      ORDER BY total_good_pieces DESC
+    `);
+    
+    return result.rows as OperatorPerformance[];
+  }
 }
 
 export async function getQualityMetrics(startDate?: string, endDate?: string): Promise<QualityMetrics[]> {

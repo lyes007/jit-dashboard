@@ -4,11 +4,13 @@ import {
   getMachinePerformance,
   getTopOperators,
   getQualityMetrics,
+  getAllMachines,
 } from '@/lib/queries';
 import MetricCard from '@/components/MetricCard';
 import ProductionChart from '@/components/ProductionChart';
 import MachineComparison from '@/components/MachineComparison';
 import DateFilter from '@/components/DateFilter';
+import MachineFilter from '@/components/MachineFilter';
 import { Suspense } from 'react';
 import {
   Package,
@@ -22,12 +24,13 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { capitalizeName } from '@/lib/utils';
 
 interface PageProps {
-  searchParams?: { month?: string };
+  searchParams?: { month?: string; machine?: string };
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   // Get month from search params or default to August 2025
   const monthParam = searchParams?.month || '2025-08';
+  const machineParam = searchParams?.machine || 'all';
   const [year, month] = monthParam.split('-').map(Number);
   const startDate = startOfMonth(new Date(year, month - 1, 1));
   const endDate = endOfMonth(new Date(year, month - 1, 1));
@@ -35,18 +38,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const startDateStr = format(startDate, 'yyyy-MM-dd');
   const endDateStr = format(endDate, 'yyyy-MM-dd');
 
-  // Fetch all data in parallel with date filtering
+  // Fetch all data in parallel with date and machine filtering
   const [
+    machines,
     kpiSummary,
     productionTrend,
     machinePerformance,
     topOperators,
     qualityMetrics,
   ] = await Promise.all([
-    getKPISummary(startDateStr, endDateStr),
+    getAllMachines(),
+    getKPISummary(startDateStr, endDateStr, machineParam !== 'all' ? machineParam : undefined),
     getProductionTrend(startDateStr, endDateStr),
     getMachinePerformance(startDateStr, endDateStr),
-    getTopOperators(10),
+    getTopOperators(), // Get all operators
     getQualityMetrics(startDateStr, endDateStr),
   ]);
 
@@ -79,10 +84,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Date Filter */}
-      <Suspense fallback={<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">Loading filter...</div>}>
-        <DateFilter />
-      </Suspense>
+      {/* Filters */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Suspense fallback={<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">Loading filter...</div>}>
+          <DateFilter />
+        </Suspense>
+        <Suspense fallback={<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">Loading filter...</div>}>
+          <MachineFilter machines={machines} />
+        </Suspense>
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -187,19 +197,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Top Operators Table */}
+      {/* Operators Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200/80">
           <div>
             <h3 className="text-lg font-bold text-gray-900 tracking-tight">
-              Top Operators
+              Operators
             </h3>
-            <p className="text-xs text-gray-500 mt-0.5 font-medium">Highest performing operators by production volume</p>
+            <p className="text-xs text-gray-500 mt-0.5 font-medium">All operators by production volume</p>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50/80">
+            <thead className="bg-gray-50/80 sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-16">
                   #

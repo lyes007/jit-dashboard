@@ -22,7 +22,8 @@ export default function DateFilter() {
 
   const handleMonthChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newMonth = event.target.value;
-    router.push(`/?month=${newMonth}`);
+    const machine = searchParams.get('machine') || 'all';
+    router.push(`/?month=${newMonth}&machine=${machine}`);
   };
 
   return (
