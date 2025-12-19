@@ -6,6 +6,7 @@
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
+  --sidebar-width: 256px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +49,13 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* Dynamic sidebar width for main content */
+@media (min-width: 1024px) {
+  .main-content {
+    margin-left: var(--sidebar-width, 256px);
   }
 }
 
